@@ -271,7 +271,7 @@ static int get_build_id_64(struct freader *r, unsigned char *build_id, __u32 *si
 /* enough for Elf64_Ehdr, Elf64_Phdr, and all the smaller requests */
 #define MAX_FREADER_BUF_SZ 64
 
-static int __build_id_parse(struct vm_area_struct *vma, unsigned char *build_id,
+static int __build_id_parse(struct file *file, unsigned char *build_id,
 			    __u32 *size, bool may_fault)
 {
 	const Elf32_Ehdr *ehdr;
@@ -279,11 +279,7 @@ static int __build_id_parse(struct vm_area_struct *vma, unsigned char *build_id,
 	char buf[MAX_FREADER_BUF_SZ];
 	int ret;
 
-	/* only works for page backed storage  */
-	if (!vma->vm_file)
-		return -EINVAL;
-
-	freader_init_from_file(&r, buf, sizeof(buf), vma->vm_file, may_fault);
+	freader_init_from_file(&r, buf, sizeof(buf), file, may_fault);
 
 	/* fetch first 18 bytes of ELF header for checks */
 	ehdr = freader_fetch(&r, 0, offsetofend(Elf32_Ehdr, e_type));
@@ -324,7 +320,11 @@ out:
  */
 int build_id_parse_nofault(struct vm_area_struct *vma, unsigned char *build_id, __u32 *size)
 {
-	return __build_id_parse(vma, build_id, size, false /* !may_fault */);
+	/* only works for page backed storage  */
+	if (!vma->vm_file)
+		return -EINVAL;
+
+	return __build_id_parse(vma->vm_file, build_id, size, false /* !may_fault */);
 }
 
 /*
@@ -340,7 +340,16 @@ int build_id_parse_nofault(struct vm_area_struct *vma, unsigned char *build_id, 
  */
 int build_id_parse(struct vm_area_struct *vma, unsigned char *build_id, __u32 *size)
 {
-	return __build_id_parse(vma, build_id, size, true /* may_fault */);
+	/* only works for page backed storage  */
+	if (!vma->vm_file)
+		return -EINVAL;
+
+	return __build_id_parse(vma->vm_file, build_id, size, true /* may_fault */);
+}
+
+int build_id_parse_file(struct file *file, unsigned char *build_id, __u32 *size)
+{
+	return __build_id_parse(file, build_id, size, true /* may_fault */);
 }
 
 /**
